@@ -34,17 +34,22 @@ On a fresh database the app seeds the default styles (Espresso, Filter) and reci
 
 ## Deployment
 
-One-time setup (the D1 database `open-beans-db` and R2 bucket `open-beans-images` already exist; `wrangler.jsonc` references them):
+Deploys happen on push via Cloudflare's Git integration (Workers Builds). One-time setup in the [Cloudflare dashboard](https://dash.cloudflare.com/):
 
-```bash
-npx wrangler login           # authenticate the CLI with your Cloudflare account
-npm run db:migrate:remote    # create tables in the production D1 database
-npm run deploy               # build + deploy the Worker
-```
+1. Compute (Workers) → **Create** → **Import a repository** → connect GitHub and select `thkleiNERD/open-beans`.
+2. Project name: `open-beans` (must match `wrangler.jsonc`).
+3. Build command: `npm run build`
+4. Deploy command: `npx wrangler d1 migrations apply DB --remote && npx wrangler deploy`
 
-Subsequent deploys are just `npm run deploy`. Schema changes: edit `app/db/schema.ts`, run `npm run db:generate`, then `npm run db:migrate:local` / `npm run db:migrate:remote`.
+Every push to `main` then builds and deploys automatically, applying any pending D1 migrations first. No local wrangler login needed. (Alternative: `npx wrangler login && npm run deploy` deploys from your machine.)
+
+The D1 database `open-beans-db` and R2 bucket `open-beans-images` already exist and are referenced by `wrangler.jsonc`; the schema migration is applied and recorded in production.
+
+Schema changes: edit `app/db/schema.ts`, run `npm run db:generate`, commit — CI applies it on the next push (or run `npm run db:migrate:local` for local dev).
 
 ## Migrating data from the legacy app
+
+> **Status:** the legacy data (34 beans, 54 recipes, from the 2026-05-04 snapshot) was imported into the production D1 database on 2026-07-31, with legacy recipe names mapped onto the seeded templates. Bean photos still need to be uploaded to R2 (see step 3). If a newer `db.sqlite` exists on the old server, wipe and re-import using the steps below.
 
 Run this against the **live** database from your server (the `./instance/db.sqlite` volume of the old Docker deployment), *before* visiting the deployed app for the first time — the first visit seeds default styles/templates into an empty database, which would collide with imported IDs.
 
