@@ -73,6 +73,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="theme-color" content="#faf6f1" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        {/* iOS names a home-screen icon after this, not the per-page <title>. */}
+        <meta name="apple-mobile-web-app-title" content="Open Beans" />
         <Meta />
         <Links />
         <script dangerouslySetInnerHTML={{ __html: themeScript(theme) }} />

@@ -236,6 +236,12 @@ Dashboard → your Worker → **Settings → Domains & Routes → Add → Custom
 domain**. Cloudflare creates the DNS record and certificate; the app is live
 seconds later.
 
+The domain must already be an **active zone on your Cloudflare account** —
+i.e. added under Websites with its nameservers pointed at Cloudflare. A
+domain hosted elsewhere won't appear here. (Prefer a `workers.dev` URL
+instead? Remove `workers_dev: false` from `wrangler.jsonc` and redeploy —
+but set the login gate below first.)
+
 ### 7. Turn On the Login Gate
 
 Dashboard → your Worker → **Settings → Variables and Secrets** → add a
@@ -263,7 +269,9 @@ python3 scripts/export-data.py /path/to/old/instance/db.sqlite > data.sql
 # 2. Import into D1
 npx wrangler d1 execute open-beans-db --remote --file=data.sql
 
-# 3. Upload the bean photos to R2 (filenames must stay unchanged)
+# 3. Upload the bean photos to R2 (filenames must stay unchanged —
+#    the database references them, and the file extension determines
+#    the content type they're served with)
 cd /path/to/old/static/uploads
 for f in *; do npx wrangler r2 object put "open-beans-images/$f" --file "$f" --remote; done
 ```
@@ -276,15 +284,36 @@ npx wrangler d1 execute open-beans-db --remote --command \
   "DELETE FROM recipe; DELETE FROM recipe_template; DELETE FROM tag; DELETE FROM app_settings;"
 ```
 
-Older databases (before the templates feature) leave recipes unlinked from
-templates; link them by name afterwards:
+Databases from before the styles/recipes feature carry recipes that aren't
+linked to any template — they show up with generic slider ranges and no
+style. Link them by name, in this order:
 
-```bash
-npx wrangler d1 execute open-beans-db --remote --command \
-  "UPDATE recipe SET template_id=1, name='Espresso Small' WHERE template_id IS NULL AND name IN ('Small','small');
-   UPDATE recipe SET template_id=2, name='Espresso Large' WHERE template_id IS NULL AND name='Large';
-   UPDATE recipe SET template_id=3 WHERE template_id IS NULL AND name='Filter';"
-```
+1. **Open the app once.** An imported database with no styles gets the
+   default styles and recipe templates seeded on that first request; nothing
+   exists to link to before it.
+2. **Look up the real template IDs** — don't assume they're 1, 2, 3:
+
+   ```bash
+   npx wrangler d1 execute open-beans-db --remote \
+     --command "SELECT id, name FROM recipe_template ORDER BY id;"
+   ```
+
+3. **Link the recipes**, substituting those IDs:
+
+   ```bash
+   npx wrangler d1 execute open-beans-db --remote --command \
+     "UPDATE recipe SET template_id=1, name='Espresso Small' WHERE template_id IS NULL AND name IN ('Small','small');
+      UPDATE recipe SET template_id=2, name='Espresso Large' WHERE template_id IS NULL AND name='Large';
+      UPDATE recipe SET template_id=3 WHERE template_id IS NULL AND name='Filter';"
+   ```
+
+Adjust the names on the right to match whatever your old install called its
+brews. Anything left unlinked still works — it just falls back to generic
+slider ranges, and you can point it at a template later.
+
+If step 2 returns no rows, your import brought styles but no templates
+(seeding skips a database that already has styles): create the recipes you
+want in **Settings → Recipes** first, then use their IDs here.
 
 To rehearse the whole thing safely, run the same commands with `--local` and
 check the result with `npm run dev`.
@@ -309,9 +338,9 @@ state and two devices never disagree.
 
 - **Everything dynamic sits behind the login gate.** The Worker checks the
   cookie before React Router ever runs: pages, form actions, data requests,
-  and the `/images/*` photo proxy all require it. Only the fingerprinted
-  static assets (JS/CSS bundles, icons, manifest) are public — they contain
-  no data.
+  and the `/images/*` photo proxy all require it. Only the static build
+  assets (JS/CSS bundles, icons, manifest, service worker) are public —
+  Cloudflare serves those ahead of the Worker, and they contain no data.
 - **The cookie is an expiry timestamp signed with HMAC-SHA256** (keyed by
   your passphrase), `HttpOnly`, `Secure`, `SameSite=Lax`, valid for one
   year. There is no session store to leak or maintain; **rotating the
@@ -323,8 +352,11 @@ state and two devices never disagree.
   data in.
 - **Photos are private.** The R2 bucket has no public access; images are
   streamed through the authenticated Worker route with immutable cache
-  headers (keys are unique per upload). Uploads are validated server-side
-  (image MIME, 8 MB cap) *and* downscaled client-side to ≤1280 px JPEG.
+  headers (keys are unique per upload), plus `nosniff` and a sandboxing CSP
+  so a stored file can never execute as a document. Uploads are validated
+  server-side against a MIME allow-list (JPEG/PNG/WebP/GIF/AVIF — notably
+  *not* SVG, which can carry script) with an 8 MB cap, and downscaled
+  client-side to ≤1280 px JPEG.
 - **The database is never exposed.** D1 is reachable only through the
   Worker's Drizzle queries; all mutations are POST actions.
 - **Single-user by scope.** There are no accounts or roles — one passphrase
@@ -361,8 +393,9 @@ app/
     schema.ts            Drizzle schema (legacy-compatible names)
     index.ts             D1 client + first-run seeding
   lib/
-    images.server.ts     R2 upload with validation
+    images.server.ts     R2 upload with type/size validation
     image-client.ts      Canvas downscale before upload
+    template-form.server.ts  Shared recipe-template form parsing
   components/            RecipeCard (sliders), StarRating, TemplateForm,
                          ThemeToggle, carousel dots, icons
   routes/                home, bean, add, archive, settings,

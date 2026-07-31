@@ -160,7 +160,7 @@ function TagRow({ tag }: { tag: { id: number; name: string; templateCount: numbe
       <span className="text-sm font-medium text-coffee dark:text-stone-200">{tag.name}</span>
       {tag.templateCount > 0 && (
         <span className="text-xs text-coffee/35 dark:text-stone-500">
-          {tag.templateCount} template{tag.templateCount !== 1 ? "s" : ""}
+          {tag.templateCount} recipe{tag.templateCount !== 1 ? "s" : ""}
         </span>
       )}
       <div className="flex-1" />

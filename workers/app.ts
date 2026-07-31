@@ -28,6 +28,14 @@ async function hmac(secret: string, data: string): Promise<string> {
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/** Length-independent comparison, so a mismatch's position never leaks. */
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 async function isAuthed(request: Request, secret: string): Promise<boolean> {
   const cookies = request.headers.get("Cookie") ?? "";
   const match = cookies.match(new RegExp(`(?:^|;\\s*)${COOKIE_NAME}=([^;]+)`));
@@ -35,7 +43,7 @@ async function isAuthed(request: Request, secret: string): Promise<boolean> {
   const [expires, sig] = match[1].split(".");
   if (!expires || !sig) return false;
   if (Number(expires) * 1000 < Date.now()) return false;
-  return (await hmac(secret, `auth:${expires}`)) === sig;
+  return safeEqual(await hmac(secret, `auth:${expires}`), sig);
 }
 
 function loginPage(error?: string): Response {
