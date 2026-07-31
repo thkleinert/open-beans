@@ -7,6 +7,9 @@
 	"name": "open-beans",
 	"compatibility_date": "2026-07-30",
 	"main": "./workers/app.ts",
+	// Only serve on the custom domain; never re-enable workers.dev on deploy.
+	"workers_dev": false,
+	"preview_urls": false,
 	"observability": {
 		"enabled": true
 	},
