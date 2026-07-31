@@ -1,108 +1,382 @@
 <div align="center">
-  <img src="public/icon-192.png" width="96" alt="Open Beans">
-  <h1>Open Beans</h1>
-  <p>A minimal, mobile-first coffee tracker for dialling in your perfect brew — now serverless.</p>
+
+<img src="public/icon-192.png" width="96" alt="Open Beans logo" />
+
+# Open Beans
+
+**Dial in your perfect brew.**
+
+A minimal, mobile-first coffee tracker. Open Beans keeps every bag of beans
+you're brewing on a swipeable shelf — with a photo, a rating, and one
+auto-saving recipe per brew style — so the next espresso starts where the
+last one left off, not from memory. Entirely serverless on Cloudflare's free
+tier: no server to run, nothing to back up, installs like an app.
+
+[![React Router 8](https://img.shields.io/badge/React%20Router-8-f44250?logo=reactrouter&logoColor=white)](https://reactrouter.com)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-f38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
+[![D1](https://img.shields.io/badge/D1-SQLite-003b57?logo=sqlite&logoColor=white)](https://developers.cloudflare.com/d1/)
+[![Drizzle](https://img.shields.io/badge/Drizzle-ORM-c5f74f?logo=drizzle&logoColor=black)](https://orm.drizzle.team)
+[![Tailwind CSS 4](https://img.shields.io/badge/Tailwind-4-06b6d4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![PWA](https://img.shields.io/badge/PWA-installable-5a0fc8)](#-install-it-like-an-app)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+<br />
+
+<img src="docs/screenshots/home.png" width="260" alt="Bean carousel with photo, rating and style pills" />&nbsp;
+<img src="docs/screenshots/recipes.png" width="260" alt="Recipe card with auto-saving sliders" />&nbsp;
+<img src="docs/screenshots/settings.png" width="260" alt="Settings with styles and recipe templates" />
+
 </div>
 
 ---
 
-Open Beans is a web app for tracking coffee beans and dialling in brew parameters. This is the serverless rewrite of the original [Flask/SQLite app](https://github.com/thkleinert/coffee-beans-tracker), running entirely on Cloudflare's free tier.
+## Contents
 
-## Stack
+- [Feature Tour](#feature-tour)
+- [How It's Built](#how-its-built)
+- [Self-Hosting Guide](#self-hosting-guide)
+  - [1. Prerequisites](#1-prerequisites)
+  - [2. Clone and Install](#2-clone-and-install)
+  - [3. Create the D1 Database and R2 Bucket](#3-create-the-d1-database-and-r2-bucket)
+  - [4. Run It Locally](#4-run-it-locally)
+  - [5. Deploy](#5-deploy)
+  - [6. Add a Custom Domain](#6-add-a-custom-domain)
+  - [7. Turn On the Login Gate](#7-turn-on-the-login-gate)
+- [Migrating from the Flask Version](#migrating-from-the-flask-version)
+- [Install It Like an App](#-install-it-like-an-app)
+- [Security Model](#security-model)
+- [Development](#development)
+- [Project Structure](#project-structure)
+- [License](#license)
 
-| Layer | Technology |
+---
+
+## Feature Tour
+
+### 🫘 Your Open Bags, One Shelf
+
+<img align="right" src="docs/screenshots/home.png" width="235" alt="Bean carousel" />
+
+Every bag you're currently brewing is a full-height card in a snap-scrolling
+carousel: photo of the bag, a 1–3 star rating, and pills showing which brew
+styles you've dialled in for it. Swipe between bags, tap one to get to its
+recipes.
+
+Finished a bag? Archive it — it moves to a searchable archive with its
+rating and recipes intact, and can be restored the day you buy it again
+(which is the whole point: your old grinder setting comes back with it).
+
+<br clear="right" />
+
+### ⏱️ Recipes That Save Themselves
+
+<img align="left" src="docs/screenshots/recipes.png" width="235" alt="Recipe sliders" />
+
+Each bean holds one recipe per template — single espresso, double espresso,
+filter — as cards in a carousel. A recipe is four sliders: **bean amount**,
+**grinder setting**, **cup weight**, and **brew time**, each with +/− buttons
+for single-step nudges.
+
+There is no save button. Move a slider and the value is persisted moments
+later; walk away mid-adjustment and nothing is lost. Ranges, step sizes and
+starting values all come from the recipe template.
+
+<br clear="left" />
+
+### 🏷️ Styles and Templates, Yours to Shape
+
+<img align="right" src="docs/screenshots/settings.png" width="235" alt="Settings" />
+
+**Styles** are brew methods — Espresso, Filter, whatever you drink — and
+group the recipe templates. **Templates** define a specific brew (e.g.
+*Espresso Small*): min, max, step, and default for each of the four sliders.
+Add as many as you like, drag to reorder them, and each template can be
+added once per bean.
+
+The theme — light, dark, or follow-the-system — lives here too, stored in
+the database so every device agrees.
+
+<br clear="right" />
+
+### 🔐 One Passphrase, Once per Device
+
+The Worker ships a built-in login gate: enter your passphrase once on each
+device and a signed cookie keeps you in for a year. Pages, data, and photos
+are all behind it — no Cloudflare Access, no OAuth dance, no session that
+expires mid-espresso. Changing the secret logs out every device at once.
+
+---
+
+## How It's Built
+
+**No servers, no containers.** One Cloudflare Worker serves the
+server-rendered React app, gates every request behind the login cookie, and
+talks to D1 (SQLite) through Drizzle. Bean photos are downscaled in the
+browser before upload and streamed out of a private R2 bucket by the same
+Worker. Pushing to `main` deploys via Workers Builds.
+
+```mermaid
+flowchart LR
+    subgraph Device["📱 Browser / installed PWA"]
+        UI[React UI]
+    end
+    subgraph Worker["Cloudflare Worker · open-beans"]
+        Gate[Login gate<br/>signed cookie]
+        RR[React Router<br/>loaders + actions]
+        IMG["/images/:key"]
+    end
+    UI --> Gate
+    Gate --> RR
+    Gate --> IMG
+    RR -->|Drizzle ORM| D1[(D1 · SQLite)]
+    IMG --> R2[[R2 · bean photos]]
+    UI -.->|hashed JS/CSS/icons| Assets[Static assets]
+    GH[GitHub push to main] -->|Workers Builds:<br/>migrate + deploy| Worker
+```
+
+| Layer | Choice |
 |---|---|
-| Framework | React Router (framework mode), TypeScript, React 19 |
+| Framework | React Router 8 (framework mode, SSR) + React 19 + TypeScript |
 | Runtime | Cloudflare Workers |
-| Database | Cloudflare D1 (SQLite) via Drizzle ORM |
-| Images | Cloudflare R2, downscaled client-side before upload |
-| Styling | Tailwind CSS 4 |
-| Drag & drop | dnd-kit |
-| Auth | Cloudflare Access (in front of the domain, no app code) |
+| Database | Cloudflare D1 (SQLite) via Drizzle ORM, migrations via `drizzle-kit` + `wrangler` |
+| Photos | Cloudflare R2, private bucket; client-side canvas downscale before upload |
+| Styling | Tailwind CSS 4, the original app's design tokens ported to `@theme` |
+| Drag & drop | dnd-kit (template reordering) |
+| Auth | Hand-rolled passphrase gate in the Worker — HMAC-signed year-long cookie |
+| CI/CD | Cloudflare Workers Builds — build, apply D1 migrations, deploy on push |
 
-The D1 schema uses the exact table/column names of the legacy SQLite database, so old data imports losslessly.
+The schema intentionally keeps the table and column names of the original
+Flask/SQLAlchemy app, so data from a legacy instance imports without any
+transformation.
 
-## Local development
+---
+
+## Self-Hosting Guide
+
+One Worker, one D1 database, one R2 bucket — all comfortably inside
+Cloudflare's free tier.
+
+### 1. Prerequisites
+
+- A [Cloudflare](https://dash.cloudflare.com) account
+- Node.js **20+** and npm
+- A GitHub account, if you want push-to-deploy
+
+### 2. Clone and Install
 
 ```bash
+git clone <your-fork-url>
+cd open-beans
 npm install
-npm run db:migrate:local   # create tables in the local D1 emulator
+```
+
+### 3. Create the D1 Database and R2 Bucket
+
+```bash
+npx wrangler login
+npx wrangler d1 create open-beans-db
+npx wrangler r2 bucket create open-beans-images
+```
+
+Copy the `database_id` that `d1 create` prints into
+[`wrangler.jsonc`](wrangler.jsonc), then create the tables:
+
+```bash
+npm run db:migrate:remote
+```
+
+### 4. Run It Locally
+
+```bash
+npm run db:migrate:local   # tables in the local D1 emulator
 npm run dev                # http://localhost:5173
 ```
 
-On a fresh database the app seeds the default styles (Espresso, Filter) and recipe templates on first request, same as the legacy app.
+On an empty database the app seeds the default styles (Espresso, Filter) and
+three recipe templates on first request — add a bean and you're brewing.
 
-## Deployment
+### 5. Deploy
 
-Deploys happen on push via Cloudflare's Git integration (Workers Builds). One-time setup in the [Cloudflare dashboard](https://dash.cloudflare.com/):
+**Push-to-deploy (recommended).** In the dashboard: **Workers & Pages →
+Create → Import a repository**, pick your fork, and configure:
 
-1. Compute (Workers) → **Create** → **Import a repository** → connect GitHub and select `thkleiNERD/open-beans`.
-2. Project name: `open-beans` (must match `wrangler.jsonc`).
-3. Build command: `npm run build`
-4. Deploy command: `npx wrangler d1 migrations apply DB --remote && npx wrangler deploy`
+| Setting | Value |
+|---|---|
+| Project name | `open-beans` (must match `name` in `wrangler.jsonc`) |
+| Build command | `npm run build` |
+| Deploy command | `npx wrangler d1 migrations apply DB --remote && npx wrangler deploy` |
 
-Every push to `main` then builds and deploys automatically, applying any pending D1 migrations first. No local wrangler login needed. (Alternative: `npx wrangler login && npm run deploy` deploys from your machine.)
+Every push to `main` now builds, applies pending migrations, and deploys.
+Future schema changes are just: edit `app/db/schema.ts`, `npm run
+db:generate`, commit.
 
-The D1 database `open-beans-db` and R2 bucket `open-beans-images` already exist and are referenced by `wrangler.jsonc`; the schema migration is applied and recorded in production.
+**Or from your machine:** `npm run deploy`.
 
-Schema changes: edit `app/db/schema.ts`, run `npm run db:generate`, commit — CI applies it on the next push (or run `npm run db:migrate:local` for local dev).
+> `wrangler.jsonc` sets `workers_dev: false` — the Worker is only reachable
+> through the custom domain you attach next, and deploys can't silently
+> re-enable the `workers.dev` URL.
 
-## Migrating data from the legacy app
+### 6. Add a Custom Domain
 
-> **Status:** the legacy data (34 beans, 54 recipes, from the 2026-05-04 snapshot) was imported into the production D1 database on 2026-07-31, with legacy recipe names mapped onto the seeded templates. Bean photos still need to be uploaded to R2 (see step 3). If a newer `db.sqlite` exists on the old server, wipe and re-import using the steps below.
+Dashboard → your Worker → **Settings → Domains & Routes → Add → Custom
+domain**. Cloudflare creates the DNS record and certificate; the app is live
+seconds later.
 
-Run this against the **live** database from your server (the `./instance/db.sqlite` volume of the old Docker deployment), *before* visiting the deployed app for the first time — the first visit seeds default styles/templates into an empty database, which would collide with imported IDs.
+### 7. Turn On the Login Gate
+
+Dashboard → your Worker → **Settings → Variables and Secrets** → add a
+**Secret** named `AUTH_PASSPHRASE` with a passphrase you can type on a phone
+keyboard. It takes effect immediately — no redeploy.
+
+Until the secret exists the gate is off (fail-open), so a fresh deploy can
+never lock you out.
+
+---
+
+## Migrating from the Flask Version
+
+Coming from the original
+[coffee-beans-tracker](https://github.com/thkleinert/coffee-beans-tracker)?
+Your data ports losslessly. Do this **before** first visiting the deployed
+app — an empty database seeds default styles/templates on first request,
+which would collide with imported IDs (if that happened, the wipe command is
+below).
 
 ```bash
-# 1. Export the old data as D1-ready SQL (also rewrites image paths)
+# 1. Export the old data as D1-ready SQL (explicit column names,
+#    image paths rewritten from /static/uploads/* to /images/*)
 python3 scripts/export-data.py /path/to/old/instance/db.sqlite > data.sql
 
-# 2. Import into production D1
+# 2. Import into D1
 npx wrangler d1 execute open-beans-db --remote --file=data.sql
 
-# 3. Upload the bean photos to R2
+# 3. Upload the bean photos to R2 (filenames must stay unchanged)
 cd /path/to/old/static/uploads
 for f in *; do npx wrangler r2 object put "open-beans-images/$f" --file "$f" --remote; done
 ```
 
-If the app already seeded defaults before the import, clear them first:
+Stop the old container before copying `db.sqlite` so nothing writes to it
+mid-copy. If the app seeded defaults before your import, clear them first:
 
 ```bash
 npx wrangler d1 execute open-beans-db --remote --command \
   "DELETE FROM recipe; DELETE FROM recipe_template; DELETE FROM tag; DELETE FROM app_settings;"
 ```
 
-To rehearse locally first, use the same commands with `--local` and `npm run dev`.
+Older databases (before the templates feature) leave recipes unlinked from
+templates; link them by name afterwards:
 
-## Authentication
+```bash
+npx wrangler d1 execute open-beans-db --remote --command \
+  "UPDATE recipe SET template_id=1, name='Espresso Small' WHERE template_id IS NULL AND name IN ('Small','small');
+   UPDATE recipe SET template_id=2, name='Espresso Large' WHERE template_id IS NULL AND name='Large';
+   UPDATE recipe SET template_id=3 WHERE template_id IS NULL AND name='Filter';"
+```
 
-The Worker has a built-in login gate (`workers/app.ts`): a passphrase entered once per device sets a signed, HttpOnly cookie valid for one year. Everything the Worker serves — pages, data requests, and R2 images — requires the cookie; only the static build assets (JS/CSS bundles, icons, manifest) are public.
+To rehearse the whole thing safely, run the same commands with `--local` and
+check the result with `npm run dev`.
 
-- **Enable it:** set the secret `AUTH_PASSPHRASE` on the Worker (dashboard → Workers → open-beans → Settings → Variables and Secrets → add as *Secret*). Until the secret exists, the gate is disabled (fail-open) so a fresh deploy can't lock you out.
-- **Local dev:** put `AUTH_PASSPHRASE=whatever` in `.dev.vars` (gitignored), or leave it unset to skip login.
-- **Log out / rotate:** change the secret — all existing cookies become invalid immediately.
+---
 
-## Project structure
+## 📲 Install It Like an App
+
+Open Beans is an installable PWA. On your phone, open your domain in the
+browser, log in once, and use **Add to Home Screen** (iOS Safari) or the
+install prompt (Android Chrome). You get a full-screen app with
+pull-to-refresh, and the login cookie means you won't see the gate again on
+that device for a year.
+
+The service worker is deliberately a pass-through — it exists for
+installability and never caches data, so the app always shows the current
+state and two devices never disagree.
+
+---
+
+## Security Model
+
+- **Everything dynamic sits behind the login gate.** The Worker checks the
+  cookie before React Router ever runs: pages, form actions, data requests,
+  and the `/images/*` photo proxy all require it. Only the fingerprinted
+  static assets (JS/CSS bundles, icons, manifest) are public — they contain
+  no data.
+- **The cookie is an expiry timestamp signed with HMAC-SHA256** (keyed by
+  your passphrase), `HttpOnly`, `Secure`, `SameSite=Lax`, valid for one
+  year. There is no session store to leak or maintain; **rotating the
+  passphrase invalidates every cookie instantly**. Login responses compare
+  HMACs rather than raw strings, so timing doesn't leak the passphrase.
+- **Fail-open by design, once.** With no `AUTH_PASSPHRASE` secret set the
+  gate is disabled — that's what makes the first deploy safe. Set the secret
+  as part of setup and verify you get the login page before putting real
+  data in.
+- **Photos are private.** The R2 bucket has no public access; images are
+  streamed through the authenticated Worker route with immutable cache
+  headers (keys are unique per upload). Uploads are validated server-side
+  (image MIME, 8 MB cap) *and* downscaled client-side to ≤1280 px JPEG.
+- **The database is never exposed.** D1 is reachable only through the
+  Worker's Drizzle queries; all mutations are POST actions.
+- **Single-user by scope.** There are no accounts or roles — one passphrase
+  guards one household's coffee data. If you need per-user data or audit
+  trails, put Cloudflare Access in front instead (and accept its
+  session-expiry UX inside an installed PWA).
+
+---
+
+## Development
+
+```bash
+npm run dev                # Vite dev server + local D1/R2 emulators
+npm run db:migrate:local   # apply migrations to the local database
+npm run db:generate        # generate a migration from schema.ts changes
+npm run typecheck          # wrangler types + react-router typegen + tsc
+npm run build              # production build
+npm run deploy             # build + deploy from your machine
+```
+
+Put `AUTH_PASSPHRASE=whatever` in `.dev.vars` (gitignored) to exercise the
+login gate locally; leave it unset to skip it.
+
+---
+
+## Project Structure
 
 ```
-open-beans/
-├── app/
-│   ├── root.tsx               # Layout, theme, pull-to-refresh, PWA registration
-│   ├── routes.ts              # Route config
-│   ├── app.css                # Tailwind theme (ported legacy design tokens)
-│   ├── db/
-│   │   ├── schema.ts          # Drizzle schema (legacy-compatible names)
-│   │   └── index.ts           # D1 client + first-run seeding
-│   ├── lib/                   # R2 upload, client-side image downscaling
-│   ├── components/            # RecipeCard (sliders), StarRating, TemplateForm, …
-│   └── routes/                # home, bean, add, archive, settings, images, theme
-├── drizzle/                   # Generated SQL migrations (applied via wrangler)
-├── scripts/export-data.py     # Legacy SQLite → D1 export
-├── public/                    # PWA manifest, icons, service worker
-├── workers/app.ts             # Worker entry
-└── wrangler.jsonc             # Bindings: DB (D1), IMAGES (R2)
+app/
+  root.tsx               Layout, theme script, pull-to-refresh, SW registration
+  routes.ts              Route config
+  app.css                Tailwind 4 theme — the legacy design tokens
+  db/
+    schema.ts            Drizzle schema (legacy-compatible names)
+    index.ts             D1 client + first-run seeding
+  lib/
+    images.server.ts     R2 upload with validation
+    image-client.ts      Canvas downscale before upload
+  components/            RecipeCard (sliders), StarRating, TemplateForm,
+                         ThemeToggle, carousel dots, icons
+  routes/                home, bean, add, archive, settings,
+                         template-new/edit, images (R2 proxy), theme
+workers/app.ts           Worker entry: login gate + React Router handler
+drizzle/                 Generated SQL migrations (applied by wrangler)
+scripts/export-data.py   Legacy SQLite → D1 export
+public/                  PWA manifest, icons, pass-through service worker
+docs/screenshots/        README screenshots
+wrangler.jsonc           Bindings: DB (D1), IMAGES (R2); workers_dev off
 ```
+
+---
 
 ## License
 
-MIT
+[MIT](LICENSE) © Thomas Kleinert — fork it, self-host it, make it yours.
+
+---
+
+<div align="center">
+  <sub>
+    The serverless rewrite of
+    <a href="https://github.com/thkleinert/coffee-beans-tracker">coffee-beans-tracker</a>.
+    Built with <a href="https://reactrouter.com">React Router</a>,
+    <a href="https://workers.cloudflare.com">Cloudflare Workers</a> &
+    <a href="https://orm.drizzle.team">Drizzle</a>.
+  </sub>
+</div>

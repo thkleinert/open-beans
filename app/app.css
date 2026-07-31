@@ -60,23 +60,26 @@ body {
   background-image: linear-gradient(135deg, #e8a84a 0%, #d99738 50%, #c47b5b 100%);
 }
 
-.btn-circle {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
-  border-radius: 50%;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-@media (min-width: 768px) {
+/* In the components layer so display utilities like `hidden` still win. */
+@layer components {
   .btn-circle {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
-    min-height: 40px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 50%;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  @media (min-width: 768px) {
+    .btn-circle {
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      min-height: 40px;
+    }
   }
 }
 
