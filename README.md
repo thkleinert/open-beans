@@ -74,15 +74,13 @@ npx wrangler d1 execute open-beans-db --remote --command \
 
 To rehearse locally first, use the same commands with `--local` and `npm run dev`.
 
-## Authentication (Cloudflare Access)
+## Authentication
 
-The app itself has no login — protect it at the edge:
+The Worker has a built-in login gate (`workers/app.ts`): a passphrase entered once per device sets a signed, HttpOnly cookie valid for one year. Everything the Worker serves — pages, data requests, and R2 images — requires the cookie; only the static build assets (JS/CSS bundles, icons, manifest) are public.
 
-1. Add a route/custom domain to the Worker (Workers → open-beans → Settings → Domains & Routes), e.g. `beans.example.com`.
-2. In [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) → Access → Applications, add a self-hosted application for that hostname.
-3. Add a policy allowing only your email (one-time PIN, or Google/GitHub login).
-
-The free Zero Trust plan covers up to 50 users. Note: the `workers.dev` subdomain should be disabled once Access is configured on the custom domain, otherwise the app stays reachable without auth.
+- **Enable it:** set the secret `AUTH_PASSPHRASE` on the Worker (dashboard → Workers → open-beans → Settings → Variables and Secrets → add as *Secret*). Until the secret exists, the gate is disabled (fail-open) so a fresh deploy can't lock you out.
+- **Local dev:** put `AUTH_PASSPHRASE=whatever` in `.dev.vars` (gitignored), or leave it unset to skip login.
+- **Log out / rotate:** change the secret — all existing cookies become invalid immediately.
 
 ## Project structure
 
