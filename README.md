@@ -6,11 +6,13 @@
 
 **Dial in your perfect brew.**
 
-A minimal, mobile-first coffee tracker. Open Beans keeps every bag of beans
-you're brewing on a swipeable shelf — with a photo, a rating, and one
-auto-saving recipe per brew style — so the next espresso starts where the
-last one left off, not from memory. Entirely serverless on Cloudflare's free
-tier: no server to run, nothing to back up, installs like an app.
+A minimal, mobile-first coffee tracker, made for **single dosers**: when you
+weigh in beans per shot and keep several bags open at once, every bean needs
+its own grinder setting, dose, and brew time. Open Beans keeps every bag on
+a swipeable shelf — with a photo, a rating, and one auto-saving recipe per
+brew style — so the next espresso starts where the last one left off, not
+from memory. Entirely serverless on Cloudflare's free tier: no server to
+run, nothing to back up, installs like an app.
 
 [![React Router 8](https://img.shields.io/badge/React%20Router-8-f44250?logo=reactrouter&logoColor=white)](https://reactrouter.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
