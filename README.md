@@ -63,17 +63,28 @@ run, nothing to back up, installs like an app.
 Every bag you're currently brewing is a full-height card in a snap-scrolling
 carousel: photo of the bag, a 1–3 star rating, and pills showing which brew
 styles you've dialled in for it. Swipe between bags, tap one to get to its
-recipes.
-
-Finished a bag? Archive it — it moves to a searchable archive with its
-rating and recipes intact, and can be restored the day you buy it again
-(which is the whole point: your old grinder setting comes back with it).
+recipes — and when a bag is empty, one tap archives it.
 
 <br clear="right" />
 
+### 📦 The Archive Remembers Every Bag
+
+<img align="left" src="docs/screenshots/archive.png" width="235" alt="Searchable archive with ratings and restore" />
+
+Archived beans aren't gone — they're the app's memory. Every bag you've ever
+finished sits in a searchable list with its rating, its style chips, and all
+of its recipes fully intact.
+
+This is where the app pays off: rebuy a bean months later, hit **Restore**,
+and it's back on the shelf with the exact grinder setting, dose, and brew
+time you'd dialled in last time. No re-dialling, no guessing which of the
+three-star bags it was — the search box finds it by brand or name.
+
+<br clear="left" />
+
 ### ⏱️ Recipes That Save Themselves
 
-<img align="left" src="docs/screenshots/recipes.png" width="235" alt="Recipe sliders" />
+<img align="right" src="docs/screenshots/recipes.png" width="235" alt="Recipe sliders" />
 
 Each bean holds one recipe per template — single espresso, double espresso,
 filter — as cards in a carousel. A recipe is four sliders: **bean amount**,
@@ -84,11 +95,11 @@ There is no save button. Move a slider and the value is persisted moments
 later; walk away mid-adjustment and nothing is lost. Ranges, step sizes and
 starting values all come from the recipe template.
 
-<br clear="left" />
+<br clear="right" />
 
 ### 🏷️ Styles and Templates, Yours to Shape
 
-<img align="right" src="docs/screenshots/settings.png" width="235" alt="Settings" />
+<img align="left" src="docs/screenshots/settings.png" width="235" alt="Settings" />
 
 **Styles** are brew methods — Espresso, Filter, whatever you drink — and
 group the recipe templates. **Templates** define a specific brew (e.g.
@@ -99,7 +110,7 @@ added once per bean.
 The theme — light, dark, or follow-the-system — lives here too, stored in
 the database so every device agrees.
 
-<br clear="right" />
+<br clear="left" />
 
 ### 🔐 One Passphrase, Once per Device
 
