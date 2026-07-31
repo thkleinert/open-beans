@@ -249,8 +249,7 @@ never lock you out.
 
 ## Migrating from the Flask Version
 
-Coming from the original
-[coffee-beans-tracker](https://github.com/thkleinert/coffee-beans-tracker)?
+Coming from the original self-hosted Flask/SQLite version of Open Beans?
 Your data ports losslessly. Do this **before** first visiting the deployed
 app — an empty database seeds default styles/templates on first request,
 which would collide with imported IDs (if that happened, the wipe command is
@@ -386,8 +385,6 @@ wrangler.jsonc           Bindings: DB (D1), IMAGES (R2); workers_dev off
 
 <div align="center">
   <sub>
-    The serverless rewrite of
-    <a href="https://github.com/thkleinert/coffee-beans-tracker">coffee-beans-tracker</a>.
     Built with <a href="https://reactrouter.com">React Router</a>,
     <a href="https://workers.cloudflare.com">Cloudflare Workers</a> &
     <a href="https://orm.drizzle.team">Drizzle</a>.
