@@ -40,6 +40,7 @@ export async function loader() {
   ]);
   return {
     theme: settings.theme ?? "auto",
+    grinderOffset: settings.grinderOffset ?? 0,
     tags: allTags.map((t) => ({ id: t.id, name: t.name, templateCount: t.templates.length })),
     templates: templates.map((t) => ({ id: t.id, name: t.name, tagName: t.tag?.name ?? null })),
   };
@@ -56,6 +57,26 @@ export async function action({ request }: Route.ActionArgs) {
       const settings = await getAppSettings(db);
       await db.update(appSettings).set({ theme }).where(eq(appSettings.id, settings.id));
     }
+    return null;
+  }
+
+  if (intent === "recalibrate-grinder") {
+    const oldReading = Number(form.get("old_reading"));
+    const newReading = Number(form.get("new_reading"));
+    if (Number.isFinite(oldReading) && Number.isFinite(newReading)) {
+      const settings = await getAppSettings(db);
+      const delta = newReading - oldReading;
+      await db
+        .update(appSettings)
+        .set({ grinderOffset: (settings.grinderOffset ?? 0) + delta })
+        .where(eq(appSettings.id, settings.id));
+    }
+    return null;
+  }
+
+  if (intent === "reset-grinder-offset") {
+    const settings = await getAppSettings(db);
+    await db.update(appSettings).set({ grinderOffset: 0 }).where(eq(appSettings.id, settings.id));
     return null;
   }
 
@@ -113,6 +134,72 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   return null;
+}
+
+function GrinderOffsetSection({ grinderOffset }: { grinderOffset: number }) {
+  const recalibrateFetcher = useFetcher();
+  const resetFetcher = useFetcher();
+  const formatted = grinderOffset > 0 ? `+${grinderOffset}` : String(grinderOffset);
+
+  return (
+    <section className="mb-12 opacity-0 animate-fade-in-up" style={{ animationDelay: "75ms" }}>
+      <h2 className="text-xs font-display font-semibold text-coffee/40 dark:text-stone-500 uppercase tracking-widest mb-1">
+        Grinder
+      </h2>
+      <p className="text-xs text-coffee/40 dark:text-stone-500 mb-3">
+        After cleaning your grinder, tell it what a known setting reads now — every recipe&rsquo;s
+        &ldquo;dial to&rdquo; number adjusts automatically, without changing any saved recipe.
+      </p>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs text-coffee/40 dark:text-stone-500">Current offset</span>
+        <span className="text-sm font-semibold tabular-nums text-amber">{formatted}</span>
+        {grinderOffset !== 0 && (
+          <resetFetcher.Form method="post">
+            <input type="hidden" name="intent" value="reset-grinder-offset" />
+            <button
+              type="submit"
+              className="text-xs text-coffee/35 dark:text-stone-500 hover:text-amber transition-colors touch-manipulation underline"
+            >
+              Reset
+            </button>
+          </resetFetcher.Form>
+        )}
+      </div>
+      <recalibrateFetcher.Form
+        method="post"
+        key={grinderOffset}
+        className="flex flex-wrap items-end gap-2"
+      >
+        <input type="hidden" name="intent" value="recalibrate-grinder" />
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-coffee/40 dark:text-stone-500">Dial used to read</span>
+          <input
+            type="number"
+            name="old_reading"
+            step="any"
+            required
+            className="w-24 px-2.5 py-1.5 text-sm rounded-xl border border-coffee/15 dark:border-stone-500 bg-white/80 dark:bg-stone-800 text-coffee dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber/40"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-coffee/40 dark:text-stone-500">Now reads</span>
+          <input
+            type="number"
+            name="new_reading"
+            step="any"
+            required
+            className="w-24 px-2.5 py-1.5 text-sm rounded-xl border border-coffee/15 dark:border-stone-500 bg-white/80 dark:bg-stone-800 text-coffee dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber/40"
+          />
+        </label>
+        <button
+          type="submit"
+          className="px-3 py-1.5 rounded-xl bg-gradient-accent text-white font-display font-semibold text-sm hover:opacity-95 active:scale-[0.98] transition-all touch-manipulation"
+        >
+          Save recalibration
+        </button>
+      </recalibrateFetcher.Form>
+    </section>
+  );
 }
 
 function TagRow({ tag }: { tag: { id: number; name: string; templateCount: number } }) {
@@ -306,6 +393,8 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
           ))}
         </Form>
       </section>
+
+      <GrinderOffsetSection grinderOffset={loaderData.grinderOffset} />
 
       <section className="mb-12 opacity-0 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
         <h2 className="text-xs font-display font-semibold text-coffee/40 dark:text-stone-500 uppercase tracking-widest mb-1">

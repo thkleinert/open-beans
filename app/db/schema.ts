@@ -7,6 +7,7 @@ import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 export const appSettings = sqliteTable("app_settings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   theme: text("theme", { length: 10 }).default("auto"),
+  grinderOffset: integer("grinder_offset").default(0),
 });
 
 export const tags = sqliteTable("tag", {

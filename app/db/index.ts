@@ -66,5 +66,5 @@ export async function ensureSeeded(db: Db) {
 
 export async function getAppSettings(db: Db) {
   const rows = await db.select().from(schema.appSettings).limit(1);
-  return rows[0] ?? { id: 0, theme: "auto" };
+  return rows[0] ?? { id: 0, theme: "auto", grinderOffset: 0 };
 }

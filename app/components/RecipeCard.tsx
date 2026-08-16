@@ -28,12 +28,14 @@ interface SliderConfig {
   unit: string;
 }
 
-function sliderConfigs(recipe: RecipeWithTemplate): SliderConfig[] {
+function sliderConfigs(recipe: RecipeWithTemplate, grinderOffset: number): SliderConfig[] {
   const t = recipe.template;
   const grinderRaw = recipe.grinderCoarseness
     ? parseInt(recipe.grinderCoarseness, 10)
     : (t?.grinderDefault ?? 12);
   const brewRaw = recipe.brewTime ? parseInt(recipe.brewTime, 10) : (t?.brewDefault ?? 30);
+  const grinderMin = (t?.grinderMin ?? 0) + grinderOffset;
+  const grinderMax = (t?.grinderMax ?? 50) + grinderOffset;
   return [
     {
       key: "beans",
@@ -49,10 +51,10 @@ function sliderConfigs(recipe: RecipeWithTemplate): SliderConfig[] {
       key: "grinder",
       label: "Grinder",
       field: "grinder_coarseness",
-      min: t?.grinderMin ?? 0,
-      max: t?.grinderMax ?? 50,
+      min: grinderMin,
+      max: grinderMax,
       step: t?.grinderStep ?? 1,
-      initial: clamp(grinderRaw, t?.grinderMin ?? 0, t?.grinderMax ?? 50),
+      initial: clamp(grinderRaw + grinderOffset, grinderMin, grinderMax),
       unit: "",
     },
     {
@@ -78,27 +80,36 @@ function sliderConfigs(recipe: RecipeWithTemplate): SliderConfig[] {
   ];
 }
 
-export function RecipeCard({ recipe }: { recipe: RecipeWithTemplate }) {
+export function RecipeCard({
+  recipe,
+  grinderOffset = 0,
+}: {
+  recipe: RecipeWithTemplate;
+  grinderOffset?: number;
+}) {
   const fetcher = useFetcher();
   const deleteFetcher = useFetcher();
-  const configs = useRef(sliderConfigs(recipe)).current;
+  const configs = useRef(sliderConfigs(recipe, grinderOffset)).current;
   const [values, setValues] = useState<Record<string, number>>(() =>
     Object.fromEntries(configs.map((c) => [c.field, c.initial])),
   );
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounced auto-save: every slider move updates local state immediately and
-  // persists all four values shortly after the last change.
+  // persists all four values shortly after the last change. The grinder field is
+  // displayed with the running recalibration offset applied, so it's subtracted
+  // back out before saving — the stored value stays the offset-independent "logical" one.
   const update = (field: string, value: number) => {
     const next = { ...values, [field]: value };
     setValues(next);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
+      const toSave = { ...next, grinder_coarseness: next.grinder_coarseness - grinderOffset };
       fetcher.submit(
         {
           intent: "update-recipe",
           recipe_id: String(recipe.id),
-          ...Object.fromEntries(Object.entries(next).map(([k, v]) => [k, String(v)])),
+          ...Object.fromEntries(Object.entries(toSave).map(([k, v]) => [k, String(v)])),
         },
         { method: "post" },
       );
@@ -144,6 +155,11 @@ export function RecipeCard({ recipe }: { recipe: RecipeWithTemplate }) {
             <span className="text-xs font-display font-semibold uppercase tracking-widest text-coffee/40 dark:text-stone-500">
               {c.label}
             </span>
+            {c.key === "grinder" && grinderOffset !== 0 && (
+              <span className="text-xs text-coffee/30 dark:text-stone-500">
+                (offset {grinderOffset > 0 ? `+${grinderOffset}` : grinderOffset} applied)
+              </span>
+            )}
             <span className="tabular-nums leading-none">
               <span className="text-2xl font-bold text-amber">{values[c.field]}</span>
               {c.unit && (

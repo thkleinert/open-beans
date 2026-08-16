@@ -1,0 +1,1 @@
+ALTER TABLE `app_settings` ADD `grinder_offset` integer DEFAULT 0;

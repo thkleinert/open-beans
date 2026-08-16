@@ -7,7 +7,7 @@ import { BackIcon, CheckIcon, PencilIcon, PlusIcon, XIcon } from "../components/
 import { RecipeCard } from "../components/RecipeCard";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { CarouselDots, useCarouselDots } from "../components/useCarouselDots";
-import { getDb } from "../db";
+import { getAppSettings, getDb } from "../db";
 import { beans, recipes, recipeTemplates } from "../db/schema";
 
 export function meta({ loaderData }: Route.MetaArgs): Route.MetaDescriptors {
@@ -18,10 +18,13 @@ export function meta({ loaderData }: Route.MetaArgs): Route.MetaDescriptors {
 
 export async function loader({ params }: Route.LoaderArgs) {
   const db = getDb();
-  const bean = await db.query.beans.findFirst({
-    where: eq(beans.id, Number(params.beanId)),
-    with: { recipes: { with: { template: { with: { tag: true } } } } },
-  });
+  const [bean, settings] = await Promise.all([
+    db.query.beans.findFirst({
+      where: eq(beans.id, Number(params.beanId)),
+      with: { recipes: { with: { template: { with: { tag: true } } } } },
+    }),
+    getAppSettings(db),
+  ]);
   if (!bean) throw data("Not found", { status: 404 });
 
   const sortedRecipes = [...bean.recipes].sort((a, b) => {
@@ -42,6 +45,7 @@ export async function loader({ params }: Route.LoaderArgs) {
     bean: { id: bean.id, brand: bean.brand, name: bean.name },
     recipes: sortedRecipes,
     availableTemplates: allTemplates.filter((t) => !usedTemplateIds.has(t.id)),
+    grinderOffset: settings.grinderOffset ?? 0,
   };
 }
 
@@ -192,7 +196,7 @@ function BeanTitle({ bean }: { bean: { id: number; brand: string; name: string }
 }
 
 export default function BeanPage({ loaderData }: Route.ComponentProps) {
-  const { bean, recipes: beanRecipes, availableTemplates } = loaderData;
+  const { bean, recipes: beanRecipes, availableTemplates, grinderOffset } = loaderData;
   const trackRef = useRef<HTMLDivElement>(null);
   const cardCount = beanRecipes.length + (availableTemplates.length > 0 ? 1 : 0);
   const activeIndex = useCarouselDots(trackRef, cardCount);
@@ -227,7 +231,7 @@ export default function BeanPage({ loaderData }: Route.ComponentProps) {
           style={{ scrollSnapType: "x mandatory", scrollPaddingLeft: "1.25rem" }}
         >
           {beanRecipes.map((recipe) => (
-            <RecipeCard key={recipe.id} recipe={recipe} />
+            <RecipeCard key={recipe.id} recipe={recipe} grinderOffset={grinderOffset} />
           ))}
 
           {availableTemplates.length > 0 && (
