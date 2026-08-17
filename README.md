@@ -112,6 +112,17 @@ the database so every device agrees.
 
 <br clear="left" />
 
+### 🌀 Recalibrate After a Clean
+
+Cleaning a single-doser grinder means unscrewing the burrs, and the zero
+point drifts every time — a recipe that used to say "dial to 8" might need
+6 or 10 to grind the same after a clean. Settings has a running grinder
+offset for this: tell it what a known setting used to read and what it
+reads now, and every recipe's "dial to" number shifts automatically.
+Recipes themselves are never rewritten, so nothing about your dial-in
+history is lost, and repeated recalibrations compose — no mental math
+required.
+
 ### 🔐 One Passphrase, Once per Device
 
 The Worker ships a built-in login gate: enter your passphrase once on each
